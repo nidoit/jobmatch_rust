@@ -1,0 +1,66 @@
+[package]
+name = "jobmatch"
+version = "0.2.0"
+edition = "2021"
+description = "Job-candidate matching using NLP with RAG enhancement"
+
+[dependencies]
+# Database
+duckdb = { version = "1.1", features = ["bundled"] }
+
+# CSV & Data
+csv = "1.3"
+
+# PDF parsing
+pdf-extract = "0.7"
+
+# String similarity
+strsim = "0.11"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Crypto
+sha2 = "0.10"
+hex = "0.4"
+
+# UUID
+uuid = { version = "1", features = ["v4"] }
+
+# Regex
+regex = "1"
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Lazy static
+once_cell = "1"
+
+# Tauri GUI
+tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "jobmatch"
+path = "src/main.rs"
+
+[[bin]]
+name = "jobmatch-gui"
+path = "src/gui.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

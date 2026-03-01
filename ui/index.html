@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobMatch</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>JobMatch</h1>
+    <p class="subtitle">NLP-based Job-Candidate Matching with RAG Enhancement</p>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="nav-btn" data-tab="pipeline">Pipeline</button>
+    <button class="nav-btn" data-tab="matches">Matches</button>
+    <button class="nav-btn" data-tab="jobs">Jobs</button>
+    <button class="nav-btn" data-tab="candidates">Candidates</button>
+    <button class="nav-btn" data-tab="skills">Skills KB</button>
+    <button class="nav-btn" data-tab="analyzer">Skill Analyzer</button>
+  </nav>
+
+  <!-- Dashboard Tab -->
+  <section id="tab-dashboard" class="tab-content active">
+    <h2>Database Overview</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-jobs">-</div>
+        <div class="stat-label">Jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-candidates">-</div>
+        <div class="stat-label">Candidates</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-skills">-</div>
+        <div class="stat-label">Skills in KB</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-cooccurrence">-</div>
+        <div class="stat-label">Skill Relations</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-matches">-</div>
+        <div class="stat-label">Matches</div>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button onclick="refreshStats()" class="btn">Refresh Stats</button>
+      <button onclick="exportRag()" class="btn btn-secondary">Export RAG</button>
+    </div>
+    <div id="dashboard-msg" class="msg"></div>
+  </section>
+
+  <!-- Pipeline Tab -->
+  <section id="tab-pipeline" class="tab-content">
+    <h2>Run Pipeline</h2>
+    <p>Run the full ingestion + matching pipeline with RAG enhancement.</p>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="pipeline-force" />
+        Force reprocess all files
+      </label>
+    </div>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="pipeline-rag" checked />
+        Enable RAG enhancement
+      </label>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="pipeline-min-score">Min Score</label>
+        <input type="number" id="pipeline-min-score" value="30" min="0" max="100" />
+      </div>
+      <div class="form-group">
+        <label for="pipeline-top-n">Top N</label>
+        <input type="number" id="pipeline-top-n" value="10" min="1" max="100" />
+      </div>
+    </div>
+    <button onclick="runPipeline()" class="btn btn-primary" id="btn-pipeline">
+      Run Full Pipeline
+    </button>
+
+    <div class="separator"></div>
+    <h3>Ingest Data Only</h3>
+    <div class="actions-row">
+      <button onclick="ingestJobs(false)" class="btn">Ingest Jobs</button>
+      <button onclick="ingestCvs(false)" class="btn">Ingest CVs</button>
+      <button onclick="ingestJobs(true)" class="btn btn-secondary">Re-ingest Jobs</button>
+      <button onclick="ingestCvs(true)" class="btn btn-secondary">Re-ingest CVs</button>
+    </div>
+    <div id="pipeline-msg" class="msg"></div>
+    <div id="pipeline-result" class="result-box hidden"></div>
+  </section>
+
+  <!-- Matches Tab -->
+  <section id="tab-matches" class="tab-content">
+    <h2>Match Results</h2>
+    <button onclick="loadMatches()" class="btn">Load Matches</button>
+    <div id="matches-count" class="info-text"></div>
+    <div class="table-wrap">
+      <table id="matches-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Score</th>
+            <th>Job</th>
+            <th>Candidate</th>
+            <th>Skill Score</th>
+            <th>Matched Skills</th>
+            <th>Missing Skills</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Jobs Tab -->
+  <section id="tab-jobs" class="tab-content">
+    <h2>Jobs</h2>
+    <button onclick="loadJobs()" class="btn">Load Jobs</button>
+    <div id="jobs-count" class="info-text"></div>
+    <div class="table-wrap">
+      <table id="jobs-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Buyer</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Skills</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Candidates Tab -->
+  <section id="tab-candidates" class="tab-content">
+    <h2>Candidates</h2>
+    <button onclick="loadCandidates()" class="btn">Load Candidates</button>
+    <div id="candidates-count" class="info-text"></div>
+    <div class="table-wrap">
+      <table id="candidates-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Location</th>
+            <th>Experience</th>
+            <th>Skills</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Skills KB Tab -->
+  <section id="tab-skills" class="tab-content">
+    <h2>Skills Knowledge Base</h2>
+    <button onclick="loadSkills()" class="btn">Load Skills</button>
+    <div id="skills-count" class="info-text"></div>
+    <div class="table-wrap">
+      <table id="skills-table">
+        <thead>
+          <tr>
+            <th>Skill</th>
+            <th>Canonical</th>
+            <th>Category</th>
+            <th>Frequency</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Skill Analyzer Tab -->
+  <section id="tab-analyzer" class="tab-content">
+    <h2>Skill Analyzer</h2>
+    <p>Paste text or enter skills to analyze matching.</p>
+
+    <div class="analyzer-grid">
+      <div class="analyzer-panel">
+        <h3>Extract Skills from Text</h3>
+        <textarea id="analyze-text" rows="6" placeholder="Paste job description or resume text here..."></textarea>
+        <button onclick="analyzeText()" class="btn btn-primary">Extract Skills</button>
+        <div id="analyze-result" class="result-box hidden"></div>
+      </div>
+
+      <div class="analyzer-panel">
+        <h3>Quick Match</h3>
+        <div class="form-group">
+          <label for="match-candidate-skills">Candidate Skills (comma-separated)</label>
+          <input type="text" id="match-candidate-skills" placeholder="python, java, sql, docker" />
+        </div>
+        <div class="form-group">
+          <label for="match-job-skills">Job Required Skills (comma-separated)</label>
+          <input type="text" id="match-job-skills" placeholder="python, javascript, aws, docker, kubernetes" />
+        </div>
+        <button onclick="quickMatch()" class="btn btn-primary">Compute Match</button>
+        <div id="match-result" class="result-box hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>JobMatch v0.2.0 &mdash; Rust + Tauri</p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
