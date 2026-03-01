@@ -22,6 +22,9 @@ Commands:
   gui             Build Tauri GUI binary
   all             Build both CLI and GUI
   release         Build release binaries (optimized)
+  run             Package CLI as self-extracting .run installer
+  run-gui         Package GUI as self-extracting .run installer
+  run-all         Package both CLI and GUI into a single .run installer
   test            Run all tests
   clean           Clean build artifacts
   check           Check dependencies
@@ -31,6 +34,8 @@ Examples:
   ./build.sh              # Build CLI (debug)
   ./build.sh gui          # Build GUI (debug)
   ./build.sh release      # Build both (release, optimized)
+  ./build.sh run          # Package CLI as jobmatch-0.2.0.run
+  ./build.sh run-all      # Package both as jobmatch-0.2.0.run
   ./build.sh test         # Run tests
 
 EOF
@@ -108,7 +113,112 @@ run_tests() {
 do_clean() {
     echo -e "${CYAN}Cleaning build artifacts...${NC}"
     cargo clean
+    rm -rf dist/
     echo -e "${GREEN}Clean complete.${NC}"
+}
+
+# Read version from Cargo.toml
+get_version() {
+    grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/'
+}
+
+build_run() {
+    local bins="${1:-cli}"  # cli, gui, or all
+    local version
+    version="$(get_version)"
+    local run_file="dist/jobmatch-${version}.run"
+    local staging_dir
+    staging_dir="$(mktemp -d)"
+
+    check_deps
+
+    echo -e "${CYAN}Building release binaries for .run package...${NC}"
+
+    # Build requested binaries
+    if [ "$bins" = "cli" ] || [ "$bins" = "all" ]; then
+        build_cli release
+        cp target/release/jobmatch "$staging_dir/"
+    fi
+    if [ "$bins" = "gui" ] || [ "$bins" = "all" ]; then
+        build_gui release
+        cp target/release/jobmatch-gui "$staging_dir/"
+        # Include UI assets for the GUI
+        if [ -d ui ]; then
+            cp -r ui "$staging_dir/ui"
+        fi
+    fi
+
+    # Include icons
+    if [ -d icons ]; then
+        cp -r icons "$staging_dir/icons"
+    fi
+
+    echo -e "${CYAN}Packaging .run installer...${NC}"
+
+    mkdir -p dist
+
+    # Create the compressed archive
+    local archive
+    archive="$(mktemp)"
+    tar czf "$archive" -C "$staging_dir" .
+
+    # Write self-extracting header
+    cat > "$run_file" <<'HEADER'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# JobMatch self-extracting installer
+INSTALL_DIR="${JOBMATCH_INSTALL_DIR:-$HOME/.local/share/jobmatch}"
+BIN_DIR="${JOBMATCH_BIN_DIR:-$HOME/.local/bin}"
+
+echo "JobMatch Installer"
+echo "=================="
+echo ""
+echo "Install directory: $INSTALL_DIR"
+echo "Binary links:      $BIN_DIR"
+echo ""
+
+# Find the archive offset (line after PAYLOAD marker)
+ARCHIVE_LINE=$(awk '/^__PAYLOAD__$/{print NR + 1; exit 0;}' "$0")
+if [ -z "$ARCHIVE_LINE" ]; then
+    echo "Error: corrupt installer (missing payload marker)." >&2
+    exit 1
+fi
+
+mkdir -p "$INSTALL_DIR" "$BIN_DIR"
+
+# Extract payload
+tail -n +"$ARCHIVE_LINE" "$0" | tar xzf - -C "$INSTALL_DIR"
+
+# Symlink binaries into BIN_DIR
+for bin in jobmatch jobmatch-gui; do
+    if [ -f "$INSTALL_DIR/$bin" ]; then
+        chmod +x "$INSTALL_DIR/$bin"
+        ln -sf "$INSTALL_DIR/$bin" "$BIN_DIR/$bin"
+        echo "  Installed: $BIN_DIR/$bin"
+    fi
+done
+
+echo ""
+echo "Installation complete!"
+echo "Make sure $BIN_DIR is in your PATH."
+exit 0
+__PAYLOAD__
+HEADER
+
+    # Append the archive after the payload marker
+    cat "$archive" >> "$run_file"
+    chmod +x "$run_file"
+
+    # Cleanup
+    rm -rf "$staging_dir" "$archive"
+
+    local size
+    size="$(du -h "$run_file" | cut -f1)"
+    echo ""
+    echo -e "${GREEN}.run package created: ${CYAN}${run_file}${NC} (${size})"
+    echo -e "  Run with: ${CYAN}./${run_file}${NC}"
+    echo -e "  Custom install dir: ${CYAN}JOBMATCH_INSTALL_DIR=/opt/jobmatch ./${run_file}${NC}"
 }
 
 # ─── Main ───────────────────────────────────────────────────────────────
@@ -138,6 +248,15 @@ case "$CMD" in
         echo -e "${GREEN}Release build complete!${NC}"
         echo -e "  CLI: ${CYAN}target/release/jobmatch${NC}"
         echo -e "  GUI: ${CYAN}target/release/jobmatch-gui${NC}"
+        ;;
+    run)
+        build_run cli
+        ;;
+    run-gui)
+        build_run gui
+        ;;
+    run-all)
+        build_run all
         ;;
     test)
         run_tests
